@@ -180,5 +180,5 @@ for (var s = 0; s < scenarios.length; s++) {
 app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
 
 app.listen(8081, function () {
-  log.debug('DynanicBot app listening on port 8081!');
+  log.debug('DynaBot listening on port 8081!');
 });
