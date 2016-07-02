@@ -1,3 +1,7 @@
+/**
+ * Author:Arie Schwartzman (Microsoft)
+ * Build BOT dynamically from a JSON file
+ */
 var builder = require('botbuilder');
 var bunyan = require('bunyan');
 var log = bunyan.createLogger({ name: 'bot', level: 'debug' });
