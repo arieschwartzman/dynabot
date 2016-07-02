@@ -1,0 +1,16 @@
+{
+  "name": "dynamicbot",
+  "version": "1.0.0",
+  "description": "Create dyanamically BOT from JSON file",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Arie Schwartzman (Microsoft)",
+  "license": "ISC",
+  "dependencies": {
+    "botbuilder": "^1.0.1",
+    "bunyan": "^1.8.1",
+    "express": "^4.14.0"
+  }
+}
