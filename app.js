@@ -9,6 +9,8 @@ var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3
 var express = require('express');
 var app = express();
 
+app.set('view engine', 'ejs');  
+
 var scenarios = require('./scenarios.json');
 
 /**
@@ -182,6 +184,11 @@ for (var s = 0; s < scenarios.length; s++) {
  */
 
 app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
+
+app.get('/', function(req, res) {
+    res.render("pages/index");
+});
+
 
 app.listen(8081, function () {
   log.debug('DynaBot listening on port 8081!');
