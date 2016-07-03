@@ -5,10 +5,10 @@
 var builder = require('botbuilder');
 var bunyan = require('bunyan');
 var log = bunyan.createLogger({ name: 'bot', level: 'debug' });
-var bot;
 var express = require('express');
 var app = express();
 var fs = require('fs');
+var walker = require('walker');
 
 app.set('view engine', 'ejs');  
 
@@ -143,11 +143,11 @@ function evaluateExpression(session, value) {
 /**
  * Build a dialog with all the sub dialogs
  */
-function buildDialogRecursive(dialogNode, isRoot) {
+function buildDialogRecursive(bot, dialogNode, isRoot) {
     bot.add(dialogNode.name, buildDialog(dialogNode));
     for (var s = 0; s < dialogNode.steps.length; s++) {
         if (dialogNode.steps[s].dialog) {
-            buildDialogRecursive(dialogNode.steps[s].dialog, false);
+            buildDialogRecursive(bot, dialogNode.steps[s].dialog, false);
         }
         // Link current step to the prev step
         if (s > 0) {
@@ -164,19 +164,13 @@ function buildDialogRecursive(dialogNode, isRoot) {
 /**
  * Load all scenarios and attach them to the command dialog
  */
-function loadScenarioFile(filename) {
-    bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
-    bot.add('/', commandDialog);    
-    var commandDialog = new builder.CommandDialog();
-    commandDialog.onDefault(function (session) {
-        session.send('I can only answer questions about health and triage');
-    });
+function loadScenarioFile(bot, commandDialog, filename) {
     fs.readFile(filename, function(err, data){
         var scenarios = JSON.parse(data);
         if (err) throw err;
         for (var s = 0; s < scenarios.length; s++) {
             var dialog = scenarios[s];
-            buildDialogRecursive(dialog, true /*root*/);
+            buildDialogRecursive(bot, dialog, true /*root*/);
             // Attach them to commands
             log.debug('loading ' + dialog.intent);
             commandDialog.matches(dialog.intent, builder.DialogAction.beginDialog(dialog.name));
@@ -184,22 +178,33 @@ function loadScenarioFile(filename) {
     });
 }
 
-/**
- * Load the scenarios file
- */
-loadScenarioFile('./scenariosLibrary/scenarios.json');
+function loadScenariosFolder(path) {
+    var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
+    var commandDialog = new builder.CommandDialog();
+    commandDialog.onDefault(function (session) {
+        session.send('I can only answer questions about health and triage');
+    });
+    bot.add('/', commandDialog);    
+    var w = walker(path);
+    w.on('file', function(file, stat) {
+        log.debug('loading file ' + file);
+        loadScenarioFile(bot,commandDialog, file);
+    });
+    app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
+}
 
-/**
- * Setup Express server
- */
+loadScenariosFolder('./scenariosLibrary');
 
-app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
 
 app.get('/', function(req, res) {
     res.render("pages/index");
 });
 
 
+/**
+ * Setup Express server
+ */
 app.listen(8081, function () {
   log.debug('DynaBot listening on port 8081!');
 });
+
