@@ -5,13 +5,14 @@
 var builder = require('botbuilder');
 var bunyan = require('bunyan');
 var log = bunyan.createLogger({ name: 'bot', level: 'debug' });
-var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
+var bot;
 var express = require('express');
 var app = express();
+var fs = require('fs');
 
 app.set('view engine', 'ejs');  
 
-var scenarios = require('./scenarios.json');
+//var scenarios = require('./scenarios.json');
 
 /**
  * Build a dialog by going over all steps in this dialog and create a waterfall functions with prompts and statements
@@ -158,29 +159,38 @@ function buildDialogRecursive(dialogNode, isRoot) {
     }
 }
 
-var commandDialog = new builder.CommandDialog();
-commandDialog.onDefault(function (session) {
-    session.send('I can only answer questions about health and triage');
-});
 
-/**
- * Create command dialog TODO:replace with LUIS dialog
- */
-bot.add('/', commandDialog);
 
 /**
  * Load all scenarios and attach them to the command dialog
  */
-for (var s = 0; s < scenarios.length; s++) {
-    var dialog = scenarios[s];
-    buildDialogRecursive(dialog, true /*root*/);
-    // Attach them to commands
-    log.debug('loading ' + dialog.intent);
-    commandDialog.matches(dialog.intent, builder.DialogAction.beginDialog(dialog.name));
+function loadScenarioFile(filename) {
+    bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
+    bot.add('/', commandDialog);    
+    var commandDialog = new builder.CommandDialog();
+    commandDialog.onDefault(function (session) {
+        session.send('I can only answer questions about health and triage');
+    });
+    fs.readFile(filename, function(err, data){
+        var scenarios = JSON.parse(data);
+        if (err) throw err;
+        for (var s = 0; s < scenarios.length; s++) {
+            var dialog = scenarios[s];
+            buildDialogRecursive(dialog, true /*root*/);
+            // Attach them to commands
+            log.debug('loading ' + dialog.intent);
+            commandDialog.matches(dialog.intent, builder.DialogAction.beginDialog(dialog.name));
+        }    
+    });
 }
 
 /**
- * Setup restify server
+ * Load the scenarios file
+ */
+loadScenarioFile('./scenariosLibrary/scenarios.json');
+
+/**
+ * Setup Express server
  */
 
 app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
