@@ -210,7 +210,13 @@ loadScenariosFolder('./scenariosLibrary');
 
 
 app.get('/', function(req, res) {
-    res.render("pages/index");
+    var files = [];
+    var w = walker('./scenariosLibrary').on('file', function(file, stat){
+        files.push(file);
+    });
+    w.on('end', function(){
+        res.render("pages/index", {files:files});
+    }) ;
 });
 
 
