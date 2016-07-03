@@ -34,9 +34,6 @@
                             "dataType": ["green","black","regular"],
                             "text": "What was the color of the vomit? (green, black, regular)",
                             "variable": "vomitColor"
-                        },
-                        {
-                            "type": "endDialog"
                         }
                     ]
                 }

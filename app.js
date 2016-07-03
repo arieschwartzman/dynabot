@@ -140,21 +140,31 @@ function evaluateExpression(session, value) {
     return result;
 } 
 
-/**
- * Build a dialog with all the sub dialogs
- */
-function buildDialogRecursive(bot, dialogNode, isRoot) {
-    bot.add(dialogNode.name, buildDialog(dialogNode));
+function fixupDailogRecursive(dialogNode, isRoot) {
     for (var s = 0; s < dialogNode.steps.length; s++) {
-        if (dialogNode.steps[s].dialog) {
-            buildDialogRecursive(bot, dialogNode.steps[s].dialog, false);
+        if (!isRoot &&  dialogNode.steps[dialogNode.steps.length-1].type != 'endDialog') {
+            dialogNode.steps.push({type:'endDialog'});
         }
-        // Link current step to the prev step
         if (s > 0) {
             dialogNode.steps[s].prev = dialogNode.steps[s - 1];
         }
         if (isRoot && s == 0) {
             dialogNode.steps[0].firstStep = true;
+        }
+        if (dialogNode.steps[s].dialog) {
+            fixupDailogRecursive(dialogNode.steps[s].dialog, false);
+        }
+    }
+}
+
+/**
+ * Build a dialog with all the sub dialogs
+ */
+function buildDialogRecursive(bot, dialogNode) {
+    bot.add(dialogNode.name, buildDialog(dialogNode));
+    for (var s = 0; s < dialogNode.steps.length; s++) {
+        if (dialogNode.steps[s].dialog) {
+            buildDialogRecursive(bot, dialogNode.steps[s].dialog);
         }
     }
 }
@@ -170,7 +180,10 @@ function loadScenarioFile(bot, commandDialog, filename) {
         if (err) throw err;
         for (var s = 0; s < scenarios.length; s++) {
             var dialog = scenarios[s];
-            buildDialogRecursive(bot, dialog, true /*root*/);
+            // Fix dialogs relationship 
+            fixupDailogRecursive(dialog, true);
+            // Build dialogs and add them to the bot
+            buildDialogRecursive(bot, dialog);
             // Attach them to commands
             log.debug('loading ' + dialog.intent);
             commandDialog.matches(dialog.intent, builder.DialogAction.beginDialog(dialog.name));
