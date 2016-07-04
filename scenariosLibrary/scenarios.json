@@ -41,7 +41,7 @@
             {
                 "type": "statement",
                 "text": "'You have '+ ${painLevel}.entity + ' pain in '+ ${painLocation}.entity + ' belly and you ' + ((${vomit}) ? 'did vomit ' + ${vomitColor}.entity : 'did not vomit')",
-                "onInit":"sendEmail(session, ${a})"
+                "onInit":"sendEmail(session)"
             }
         ]
     },

@@ -58,14 +58,15 @@ function buildDialog(dialog) {
                     }
                     updatePreviousStepData(session, step.prev, results);
                     if (step.prev && step.prev.hasOwnProperty('onPost')) {
-                        evaluateExpression(session, step.prev.onPost);
+                        evaluateExpression(session, step.prev.onPost, true);
                     }
                     if (step.hasOwnProperty('visible') && !evaluateExpression(session, step.visible)) {
                         next();
                     }
                     else {
                         if (step.hasOwnProperty('onInit')) {
-                            evaluateExpression(session, step.init);
+                            eval(step.onInit)
+                            evaluateExpression(session, step.init, true);
                         }
                         var text = evaluateExpression(session, step.text);
                         var message = new builder.Message();
@@ -100,7 +101,7 @@ function buildDialog(dialog) {
                     var text = evaluateExpression(session, step.text);
                     session.send(text);
                     if (step.hasOwnProperty('onInit')) {
-                        evaluateExpression(session, step.onInit);
+                        evaluateExpression(session, step.onInit, true);
                     }
                     session.endDialog();
                 }
@@ -137,11 +138,11 @@ function updatePreviousStepData(session, prevStep, results) {
 /**
  * Replace all variable references and evaluate the resolved expression  
  */
-function evaluateExpression(session, value) {
+function evaluateExpression(session, value, toEval) {
     var result = value;
     if (typeof (value) == 'string') {
         var re = /\$\{(\S+)\}/g;
-        if (value.match(re)) {
+        if (value.match(re) || toEval) {
             var replacedExpr = value.replace(re, "session.message.botConversationData['$1']");
             log.debug(replacedExpr);
             result = eval(replacedExpr);
@@ -222,7 +223,6 @@ function sendEmail(session) {
     doctorEmail.render(data, function (err, result) {
         log.debug('===>Email is sent with ',result, err);
     })
-
 }
 
 
