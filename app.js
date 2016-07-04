@@ -8,7 +8,14 @@ var log = bunyan.createLogger({ name: 'bot', level: 'debug' });
 var express = require('express');
 var app = express();
 var fs = require('fs');
+var path = require('path');
+
 var walker = require('walker');
+var EmailTemplate = require('email-templates').EmailTemplate
+
+var templateDir = path.join(__dirname, 'email_templates', 'doctor')
+var doctorEmail = new EmailTemplate(templateDir)
+
 
 app.set('view engine', 'ejs');  
 
@@ -92,6 +99,9 @@ function buildDialog(dialog) {
                     updatePreviousStepData(session, step.prev, results);
                     var text = evaluateExpression(session, step.text);
                     session.send(text);
+                    if (step.hasOwnProperty('onInit')) {
+                        evaluateExpression(session, step.onInit);
+                    }
                     session.endDialog();
                 }
             })(currentStep)
@@ -205,6 +215,16 @@ function loadScenariosFolder(path) {
     });
     app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
 }
+
+
+function sendEmail(session) {
+    var data = {data:session.message.botConversationData};
+    doctorEmail.render(data, function (err, result) {
+        log.debug('===>Email is sent with ',result, err);
+    })
+
+}
+
 
 loadScenariosFolder('./scenariosLibrary');
 
