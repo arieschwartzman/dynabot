@@ -25,8 +25,7 @@
                 "image": "http://thumb7.shutterstock.com/display_pic_with_logo/1387945/293020235/stock-vector-young-man-in-pain-vomiting-vector-illustration-cartoon-293020235.jpg"
             },
             {
-                "dialog": {
-                    "name": "/vomit",
+                "group": {
                     "visible": "${vomit}",
                     "steps": [
                         {
@@ -58,6 +57,7 @@
             },
             {
                 "type": "prompt",
+                "visible":true,
                 "dataType": "time",
                 "variable": "painStarted",
                 "text": "When did it start?"

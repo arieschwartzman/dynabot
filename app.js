@@ -9,6 +9,7 @@ var express = require('express');
 var app = express();
 var fs = require('fs');
 var path = require('path');
+var uuid = require('node-uuid');
 
 var walker = require('walker');
 var EmailTemplate = require('email-templates').EmailTemplate
@@ -19,7 +20,6 @@ var doctorEmail = new EmailTemplate(templateDir)
 
 app.set('view engine', 'ejs');  
 
-//var scenarios = require('./scenarios.json');
 
 /**
  * Build a dialog by going over all steps in this dialog and create a waterfall functions with prompts and statements
@@ -29,15 +29,15 @@ function buildDialog(dialog) {
     for (var i = 0; i < dialog.steps.length; i++) {
         var waterfallfunction;
         var currentStep = dialog.steps[i];
-        if (currentStep.dialog) {
+        if (currentStep.group) {
             (function (step) {
                 waterfallfunction = function (session, results, next) {
                     updatePreviousStepData(session, step.prev, results);
-                    if (step.dialog.hasOwnProperty('visible') && !evaluateExpression(session, step.dialog.visible)) {
+                    if (step.group.hasOwnProperty('visible') && !evaluateExpression(session, step.group.visible)) {
                         next();
                     }
                     else {
-                        session.beginDialog(step.dialog.name);
+                        session.beginDialog(step.group.name);
                     }
                 }
             })(currentStep)
@@ -60,7 +60,7 @@ function buildDialog(dialog) {
                     if (step.prev && step.prev.hasOwnProperty('onPost')) {
                         evaluateExpression(session, step.prev.onPost, true);
                     }
-                    if (step.hasOwnProperty('visible') && !evaluateExpression(session, step.visible)) {
+                    if (step.hasOwnProperty('visible') && !evaluateExpression(session, step.visible, true)) {
                         next();
                     }
                     else {
@@ -119,8 +119,8 @@ function clearDialogData(session, dialog) {
     log.debug("clear all variables from dialog " + dialog.name);
     for (var s = 0; s < dialog.steps.length; s++) {
         delete session.message.botConversationData[dialog.steps[s].variable];
-        if (dialog.steps[s].dialog) {
-            clearDialogData(session, dialog.steps[s].dialog);
+        if (dialog.steps[s].group) {
+            clearDialogData(session, dialog.steps[s].group);
         }
     }
 }
@@ -152,6 +152,9 @@ function evaluateExpression(session, value, toEval) {
 } 
 
 function fixupDailogRecursive(dialogNode, isRoot) {
+    if (!isRoot){
+        dialogNode.name = uuid.v4(); 
+    } 
     for (var s = 0; s < dialogNode.steps.length; s++) {
         if (!isRoot &&  dialogNode.steps[dialogNode.steps.length-1].type != 'endDialog') {
             dialogNode.steps.push({type:'endDialog'});
@@ -162,8 +165,8 @@ function fixupDailogRecursive(dialogNode, isRoot) {
         if (isRoot && s == 0) {
             dialogNode.steps[0].firstStep = true;
         }
-        if (dialogNode.steps[s].dialog) {
-            fixupDailogRecursive(dialogNode.steps[s].dialog, false);
+        if (dialogNode.steps[s].group) {
+            fixupDailogRecursive(dialogNode.steps[s].group, false);
         }
     }
 }
@@ -174,8 +177,8 @@ function fixupDailogRecursive(dialogNode, isRoot) {
 function buildDialogRecursive(bot, dialogNode) {
     bot.add(dialogNode.name, buildDialog(dialogNode));
     for (var s = 0; s < dialogNode.steps.length; s++) {
-        if (dialogNode.steps[s].dialog) {
-            buildDialogRecursive(bot, dialogNode.steps[s].dialog);
+        if (dialogNode.steps[s].group) {
+            buildDialogRecursive(bot, dialogNode.steps[s].group);
         }
     }
 }
@@ -192,7 +195,7 @@ function loadScenarioFile(bot, commandDialog, filename) {
         for (var s = 0; s < scenarios.length; s++) {
             var dialog = scenarios[s];
             // Fix dialogs relationship 
-            fixupDailogRecursive(dialog, true);
+            fixupDailogRecursive(dialog, true /*root*/);
             // Build dialogs and add them to the bot
             buildDialogRecursive(bot, dialog);
             // Attach them to commands
