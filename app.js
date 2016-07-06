@@ -12,12 +12,12 @@ var mongoose = require('mongoose');
 var base64 = require('base-64');
 var bodyParser = require('body-parser');
 var builder = require('botbuilder');
+var removeRoute = require('express-remove-route');  
 
 var EmailTemplate = require('email-templates').EmailTemplate
 
 var templateDir = path.join(__dirname, 'email_templates', 'doctor')
 var doctorEmail = new EmailTemplate(templateDir)
-var stepsMap = {};
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -58,88 +58,86 @@ db.once('open', function() {
  * Build a dialog by going over all steps in this dialog and create a waterfall functions with prompts and statements
  */
 function buildDialog(dialog) {
-    var funcs = [];
+    var waterfallFunctions = [];
     for (var i = 0; i < dialog.steps.length; i++) {
         var waterfallfunction;
         var currentStep = dialog.steps[i];
-        if (currentStep.group) {
-            waterfallfunction = function (session, results, next) {
-                var step = getStepData(session);
-                updatePreviousStepData(session, step.prev, results);
-                if (step.group.hasOwnProperty('visible') && !evaluateExpression(session, step.group.visible)) {
-                    next();
-                }
-                else {
-                    session.beginDialog(step.group.name);
-                }
-            }
-        }
-        if (currentStep.type == "endDialog") {
-            waterfallfunction = function (session, results, next) {
-                var step = getStepData(session);
-                updatePreviousStepData(session, step.prev, results);
-                session.endDialog({ response: results.response });
-            }
-        }
-        if (currentStep.type == "prompt") {
-            waterfallfunction = function (session, results, next) {
-
-                var step = getStepData(session);
-                if (step.firstStep) {
-                    clearDialogData(session, dialog);
-                }
-                updatePreviousStepData(session, step.prev, results);
-                if (step.prev && step.prev.hasOwnProperty('onPost')) {
-                    evaluateExpression(session, step.prev.onPost, true);
-                }
-                if (step.hasOwnProperty('visible') && !evaluateExpression(session, step.visible, true)) {
-                    next();
-                }
-                else {
-                    if (step.hasOwnProperty('onInit')) {
-                        eval(step.onInit)
-                        evaluateExpression(session, step.init, true);
-                    }
-                    var text = evaluateExpression(session, step.text);
-                    var message = new builder.Message();
-                    message.setText(session, text);
-                    // If there is an image, attach it
-                    if (step.hasOwnProperty('image')) {
-                        message.addAttachment({
-                            contentType: 'image/png',
-                            contentUrl: evaluateExpression(session, step.image)
-                        });
-                    }
-                    if (Array.isArray(step.dataType)) {
-                        builder.Prompts.choice(session, message, step.dataType);
-                    } else if (step.dataType == 'boolean') {
-                        builder.Prompts.confirm(session, message);
-                    } else if (step.dataType == 'number') {
-                        builder.Prompts.number(session, message);
-                    } else if (step.dataType == 'time') {
-                        builder.Prompts.time(session, message)
+        (function(step){
+            if (step.group) {
+                waterfallfunction = function (session, results, next) {
+                    updatePreviousStepData(session, step.prev, results);
+                    if (step.group.hasOwnProperty('visible') && !evaluateExpression(session, step.group.visible)) {
+                        next();
                     }
                     else {
-                        builder.Prompts.text(session, message);
+                        session.beginDialog(step.group.name);
                     }
                 }
             }
-        }
-        if (currentStep.type == "statement") {
-            waterfallfunction = function (session, results) {
-                var step = getStepData(session);
-                updatePreviousStepData(session, step.prev, results);
-                var text = evaluateExpression(session, step.text);
-                session.send(text);
-                if (step.hasOwnProperty('onInit')) {
-                    evaluateExpression(session, step.onInit, true);
+            if (currentStep.type == "endDialog") {
+                waterfallfunction = function (session, results, next) {
+                    updatePreviousStepData(session, step.prev, results);
+                    session.endDialog({ response: results.response });
                 }
-                session.endDialog();
             }
-        }
-        funcs.push(waterfallfunction);
+            if (currentStep.type == "prompt") {
+                waterfallfunction = function (session, results, next) {
+                    if (step.firstStep) {
+                        clearDialogData(session, dialog);
+                    }
+                    updatePreviousStepData(session, step.prev, results);
+                    if (step.prev && step.prev.hasOwnProperty('onPost')) {
+                        evaluateExpression(session, step.prev.onPost, true);
+                    }
+                    if (step.hasOwnProperty('visible') && !evaluateExpression(session, step.visible, true)) {
+                        next();
+                    }
+                    else {
+                        if (step.hasOwnProperty('onInit')) {
+                            eval(step.onInit)
+                            evaluateExpression(session, step.init, true);
+                        }
+                        var text = evaluateExpression(session, step.text);
+                        var message = new builder.Message();
+                        message.setText(session, text);
+                        // If there is an image, attach it
+                        if (step.hasOwnProperty('image')) {
+                            message.addAttachment({
+                                contentType: 'image/png',
+                                contentUrl: evaluateExpression(session, step.image)
+                            });
+                        }
+                        if (Array.isArray(step.dataType)) {
+                            builder.Prompts.choice(session, message, step.dataType);
+                        } else if (step.dataType == 'boolean') {
+                            builder.Prompts.confirm(session, message);
+                        } else if (step.dataType == 'number') {
+                            builder.Prompts.number(session, message);
+                        } else if (step.dataType == 'time') {
+                            builder.Prompts.time(session, message)
+                        }
+                        else {
+                            builder.Prompts.text(session, message);
+                        }
+                    }
+                }
+            }
+            if (currentStep.type == "statement") {
+                waterfallfunction = function (session, results) {
+                    updatePreviousStepData(session, step.prev, results);
+                    var text = evaluateExpression(session, step.text);
+                    session.send(text);
+                    if (step.hasOwnProperty('onInit')) {
+                        evaluateExpression(session, step.onInit, true);
+                    }
+                    session.endDialog();
+                }
+            }
+        })(currentStep);
+
+        waterfallFunctions.push(waterfallfunction);
     }
-    return funcs;
+    return waterfallFunctions;
 }
 
 /**
@@ -165,13 +163,6 @@ function updatePreviousStepData(session, prevStep, results) {
     }
 }
 
-function getStepData(session) {
-    var top = session.sessionState.callstack[session.sessionState.callstack.length-1];
-    var steps = stepsMap[top.id];
-    var iStep = top.state['BotBuilder.Data.WaterfallStep'];
-    return steps[iStep];
-}
-
 /**
  * Replace all variable references and evaluate the resolved expression  
  */
@@ -192,7 +183,6 @@ function fixupDailogRecursive(dialogNode, isRoot) {
     if (!isRoot){
         dialogNode.name = uuid.v4(); 
     } 
-    stepsMap[dialogNode.name] = dialogNode.steps;
     for (var s = 0; s < dialogNode.steps.length; s++) {
         if (!isRoot &&  dialogNode.steps[dialogNode.steps.length-1].type != 'endDialog') {
             dialogNode.steps.push({type:'endDialog'});
@@ -241,8 +231,9 @@ function loadScenarioFile(bot, commandDialog, code) {
     }    
 }
 
-function loadScenariosFolder(scenarioName) {
+function loadScenariosFolder(scenarioName) {    
     Scenarios.findOne({name:scenarioName}, function(err, scenarios){
+
         var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
         var commandDialog = new builder.CommandDialog();
         commandDialog.onDefault(function (session) {
@@ -288,6 +279,8 @@ app.post('/savefile', function(req, res) {
         var encoded = base64.encode(body);
         scenarios.code = encoded;
         scenarios.save(function(err, documentFoo, isOK) {
+            // Remove previous bot
+            removeRoute(app, '/dynabot');
             loadScenariosFolder(name);
             res.redirect('/');
         });
