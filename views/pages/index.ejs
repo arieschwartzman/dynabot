@@ -18,11 +18,11 @@
             <tr>
                 <th>File</th>
             </tr>
-            <% for (var i = 0; i < files.length;  i++) { %>
+            <% for (var i = 0; i < scenarios.length;  i++) { %>
                 <tr>
                     <td>
-                        <a href=editfile?file='<%=files[i]%>'>
-                            <%=files[i] %>
+                        <a href=editfile?file=<%=scenarios[i].name%>>
+                            <%=scenarios[i].name %>
                         </a>
                     </td>
                 </tr>
