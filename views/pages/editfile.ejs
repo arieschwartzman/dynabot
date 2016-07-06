@@ -6,6 +6,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/codemirror.js"></script>
     <script src= "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/mode/javascript/javascript.min.js"></script>
 
+    <style>
+        .CodeMirror {
+            border: 1px solid gray;
+        }
+
+    </style>
     <script>
         $(function(){
             var editor = $('#editor');
@@ -25,7 +31,9 @@
         <h1>Edit Scenario <%=scenarios.name%></h1>
         <form action="/savefile?file=<%=scenarios.name%>" method="post">
         <textarea id="editor" name="editor" style='width:100%;height:80%'><%=scenarios.code%></textarea>
-        <button type="submit">Save</submit>
+            <div class="btn-group" role="group" style="margin-top:10px;float:right;">
+                <button type="submit" class="btn btn-default">Save</submit>
+            </div>
         </form>
     </div>    
 </body>

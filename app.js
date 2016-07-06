@@ -6,7 +6,6 @@ var bunyan = require('bunyan');
 var log = bunyan.createLogger({ name: 'bot', level: 'debug' });
 var express = require('express');
 var app = express();
-var fs = require('fs');
 var path = require('path');
 var uuid = require('node-uuid');
 var mongoose = require('mongoose');
@@ -14,7 +13,6 @@ var base64 = require('base-64');
 var bodyParser = require('body-parser');
 var builder = require('botbuilder');
 
-var walker = require('walker');
 var EmailTemplate = require('email-templates').EmailTemplate
 
 var templateDir = path.join(__dirname, 'email_templates', 'doctor')
