@@ -291,9 +291,11 @@ app.get('/', function(req, res) {
 
 app.get('/editfile', function(req, res) {
     var name = req.query.file;
+    var mode = req.query.mode;
     Scenarios.findOne({name:name}, function(err, scenario){
         var decodedData = base64.decode(scenario.code);
         scenario.code = decodedData;
+        scenario.mode = mode;
         res.render('pages/editfile', {scenario:scenario});
     })
 });
