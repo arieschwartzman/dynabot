@@ -23,7 +23,8 @@ var doctorEmail = new EmailTemplate(templateDir)
 app.use(bodyParser.urlencoded({ extended: false }))
 // parse application/json
 app.use(bodyParser.json())
-app.set('view engine', 'ejs');  
+app.set('view engine', 'ejs'); 
+app.use(express.static('public'));
 
 mongoose.connect('mongodb://arie:arie@ds040489.mlab.com:40489/mshealthbot');
 var Schema = mongoose.Schema;
@@ -45,12 +46,13 @@ db.once('open', function() {
 	Tokens = mongoose.model('Tokens', tokenSchema);
 
     var scenariosSchema = new Schema({
-        name: String,
-        code : String
+        name        :String,
+        description :String,
+        code        :String
     });
     Scenarios = mongoose.model('Scenarios', scenariosSchema);
 
-    loadScenariosFolder("Hackathon");
+    loadScenariosFolder();
 });
 
 
@@ -217,8 +219,7 @@ function buildDialogRecursive(bot, dialogNode) {
 /**
  * Load all scenarios and attach them to the command dialog
  */
-function loadScenarioFile(bot, commandDialog, code) {
-    var scenarios = JSON.parse(code);
+function loadScenarioFile(bot, commandDialog, scenarios) {
     for (var s = 0; s < scenarios.length; s++) {
         var dialog = scenarios[s];
         // Fix dialogs relationship 
@@ -231,18 +232,32 @@ function loadScenarioFile(bot, commandDialog, code) {
     }    
 }
 
-function loadScenariosFolder(scenarioName) {    
-    Scenarios.findOne({name:scenarioName}, function(err, scenarios){
-
-        var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
-        var commandDialog = new builder.CommandDialog();
-        commandDialog.onDefault(function (session) {
-            session.send('I can only answer questions about health and triage');
-        });
-        bot.add('/', commandDialog);    
-        var code = base64.decode(scenarios.code);
-        loadScenarioFile(bot,commandDialog, code);        
-        app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
+function loadScenariosFolder() {    
+    Scenarios.find({}, function(err, scenarios) {
+        var scenariosArray = [];
+        for (s=0; s < scenarios.length; s++) {
+            var scenario = scenarios[s];
+            var jsonCode = base64.decode(scenario.code);
+            if (jsonCode.length > 0) {
+                try {
+                    var code = JSON.parse(jsonCode);
+                    scenariosArray.push(code);
+                }
+                catch (e) {
+                    log.error("failed to load json");
+                }
+            }
+        }
+        if (scenariosArray.length > 0) {
+            var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
+            var commandDialog = new builder.CommandDialog();
+            commandDialog.onDefault(function (session) {
+                session.send('I can only answer questions about health and triage');
+            });
+            bot.add('/', commandDialog);    
+            loadScenarioFile(bot,commandDialog, scenariosArray);        
+            app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
+        }
     })
 }
 
@@ -264,30 +279,58 @@ app.get('/', function(req, res) {
 
 app.get('/editfile', function(req, res) {
     var name = req.query.file;
-    Scenarios.findOne({name:name}, function(err, scenarios){
-        var decodedData = base64.decode(scenarios.code);
-        scenarios.code = decodedData;
-        res.render('pages/editfile', {scenarios:scenarios});
+    Scenarios.findOne({name:name}, function(err, scenario){
+        var decodedData = base64.decode(scenario.code);
+        scenario.code = decodedData;
+        res.render('pages/editfile', {scenario:scenario});
     })
 });
+
+app.get('/delete', function(req, res){
+    var name = req.query.file;
+    Scenarios.remove({name:name}, function(err, scenario){
+        removeRoute(app, '/dynabot');
+        loadScenariosFolder();
+        res.redirect('/');        
+    });
+});
+
+app.get('/addfile', function(req, res) {
+    var scenario = {name:'', code:'{\n\t"name":"",\n\t"intent":"",\n\t"steps":[\n\t\t{\n\t\t}\n\t]\n}', newDoc : true};
+
+    res.render('pages/editfile', {scenario:scenario});    
+})
 
 app.post('/savefile', function(req, res) {
     var name = req.query.file;
     var body = req.body.editor;
     log.debug("Saving...");
-    Scenarios.findOne({name:name}, function(err, scenarios){
+    Scenarios.findOne({name:name}, function(err, scenario){
+        if (scenario == null) {
+            scenario = new Scenarios();
+            scenario.name = req.body.name;
+            scenario.description = req.body.description;
+        }
         var encoded = base64.encode(body);
-        scenarios.code = encoded;
-        scenarios.save(function(err, documentFoo, isOK) {
+        scenario.code = encoded;
+        scenario.save(function(err, documentFoo, isOK) {
             // Remove previous bot
             removeRoute(app, '/dynabot');
-            loadScenariosFolder(name);
+            loadScenariosFolder();
             res.redirect('/');
         });
         // Reload the scenarios file
     });
 })
 
+
+function errorHandler(err, req, res, next) {
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500);
+  res.render('error', { error: err });
+}
 
 /**
  * Setup Express server

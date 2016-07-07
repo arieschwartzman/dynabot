@@ -8,22 +8,42 @@
 
 <body>
     <div class="container">
-        <h1>Health Bot Configuration</h1>
 
-        <table>
+        <div class="page-header">
+          <img src="images/logo.png" style="margin-top:-17px">
+          <h1 style="display:inline">Health Bot Configuration</h1>
+        </div>
+
+        <div class="panel panel-primary">
+
+        <div class="panel-heading">Scenarios</div>
+        
+        <table class="table">
             <tr>
-                <th>Scenario</th>
+                <th>Scenario Name</th>
+                <th>Description</th>
             </tr>
             <% for (var i = 0; i < scenarios.length;  i++) { %>
                 <tr>
                     <td>
                         <a href=editfile?file=<%=scenarios[i].name%>>
-                            <%=scenarios[i].name %>
+                            <%=scenarios[i].name%>
                         </a>
+                    </td>
+                    <td>
+                        <%=scenarios[i].description%>
+                    </td>
+                    <td>
+                        <a class="btn btn-warning btn-sm" href="/delete?file=<%=scenarios[i].name%>">Delete</a>
                     </td>
                 </tr>
                 <% } %>
         </table>
+
+        <div class="btn-group" role="group" style="margin-top:10px;float:right;">
+                <a class="btn btn-primary" href="/addfile">Add</a>
+            </div>
+        </div>
 </div>
 </body>
 
