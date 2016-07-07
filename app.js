@@ -52,7 +52,12 @@ db.once('open', function() {
     });
     Scenarios = mongoose.model('Scenarios', scenariosSchema);
 
-    loadScenariosFolder();
+    try {
+        loadScenariosFolder();
+    }
+    catch(e) {
+        log.error("Failed to load scenarios %s", e);
+    }
 });
 
 
@@ -232,8 +237,10 @@ function loadScenarioFile(bot, commandDialog, scenarios) {
     }    
 }
 
-function loadScenariosFolder() {    
-    Scenarios.find({}, function(err, scenarios) {
+
+function loadScenariosFolder() {   
+    var query = Scenarios.find({});
+    query.then(function(scenarios) {
         var scenariosArray = [];
         for (s=0; s < scenarios.length; s++) {
             var scenario = scenarios[s];
@@ -243,8 +250,8 @@ function loadScenariosFolder() {
                     var code = JSON.parse(jsonCode);
                     scenariosArray.push(code);
                 }
-                catch (e) {
-                    log.error("failed to load json");
+                catch(e) {
+                    log.error("Failed to parse %s", e.message);
                 }
             }
         }
@@ -254,11 +261,16 @@ function loadScenariosFolder() {
             commandDialog.onDefault(function (session) {
                 session.send('I can only answer questions about health and triage');
             });
-            bot.add('/', commandDialog);    
-            loadScenarioFile(bot,commandDialog, scenariosArray);        
+            bot.add('/', commandDialog);            
+            try {
+                loadScenarioFile(bot, commandDialog, scenariosArray);
+            }
+            catch (e) {
+                log.error("Failed to load scenarion %s", e.message);
+            }                        
             app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
         }
-    })
+    });
 }
 
 
@@ -286,7 +298,7 @@ app.get('/editfile', function(req, res) {
     })
 });
 
-app.get('/delete', function(req, res){
+app.get('/delete', function(req, res, next){
     var name = req.query.file;
     Scenarios.remove({name:name}, function(err, scenario){
         removeRoute(app, '/dynabot');
@@ -301,9 +313,17 @@ app.get('/addfile', function(req, res) {
     res.render('pages/editfile', {scenario:scenario});    
 })
 
-app.post('/savefile', function(req, res) {
+app.post('/savefile', function(req, res, next) {
     var name = req.query.file;
     var body = req.body.editor;
+
+    try {
+        var code = JSON.parse(body);
+    }
+    catch(e) {
+        return next(e);
+    }
+    
     log.debug("Saving...");
     Scenarios.findOne({name:name}, function(err, scenario){
         if (scenario == null) {
@@ -322,15 +342,6 @@ app.post('/savefile', function(req, res) {
         // Reload the scenarios file
     });
 })
-
-
-function errorHandler(err, req, res, next) {
-  if (res.headersSent) {
-    return next(err);
-  }
-  res.status(500);
-  res.render('error', { error: err });
-}
 
 /**
  * Setup Express server

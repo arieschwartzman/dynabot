@@ -2,8 +2,7 @@
 
 <head>
     <% include ../partials/head %>
-        <script>
-        </script>
+        
 </head>
 
 <body>
@@ -34,7 +33,7 @@
                         <%=scenarios[i].description%>
                     </td>
                     <td>
-                        <a class="btn btn-warning btn-sm" href="/delete?file=<%=scenarios[i].name%>">Delete</a>
+                        <a class="btn btn-warning btn-sm deleteButton" href="/delete?file=<%=scenarios[i].name%>">Delete</a>
                     </td>
                 </tr>
                 <% } %>
@@ -44,6 +43,16 @@
                 <a class="btn btn-primary" href="/addfile">Add</a>
             </div>
         </div>
+
+        <script>
+        $('.deleteButton').confirmation({
+	            onConfirm: function(e, element) {
+                    location = element.attr('href');
+	            },
+	            placement:'left',
+	            title:'Are you sure you want to delete this scenario?'
+	        });
+        </script>
 </div>
 </body>
 

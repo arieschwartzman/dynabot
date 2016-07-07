@@ -3,8 +3,16 @@
 <head>
     <% include ../partials/head %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/codemirror.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/addon/lint/lint.css">
+
+    
+    <script src="https://rawgithub.com/zaach/jsonlint/79b553fb65c192add9066da64043458981b3972b/lib/jsonlint.js"></script>
+    <script src="http://csslint.net/js/csslint.js"></script>    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/codemirror.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/addon/lint/lint.js"></script>
     <script src= "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/mode/javascript/javascript.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/addon/lint/css-lint.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/addon/lint/json-lint.min.js"></script>
 
     <style>
         .CodeMirror {
@@ -17,7 +25,9 @@
             var editor = $('#editor');
             var editor = CodeMirror.fromTextArea(editor[0], {
             lineNumbers: true,
-            mode: "application/json"
+            mode: "application/json",
+            gutters: ["CodeMirror-lint-markers"],
+            lint: true
             });
             editor.setSize('100%','65%');
         })
