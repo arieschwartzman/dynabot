@@ -53,7 +53,18 @@
 	            title:'Are you sure you want to delete this scenario?'
 	        });
         </script>
-</div>
+    </div>
+    <nav class="navbar navbar-default navbar-fixed-bottom">
+        <div class="container">
+            <% if(error) { %>
+            <div class="alert alert-danger" role="alert">
+            <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+            <span class="sr-only">Error:</span>
+                <%=error%>
+            </div>
+            <% } %>
+        </div>
+    </nav>
 </body>
 
 </html>

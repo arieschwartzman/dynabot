@@ -26,11 +26,13 @@ app.use(bodyParser.json())
 app.set('view engine', 'ejs'); 
 app.use(express.static('public'));
 
+mongoose.Promise = require("bluebird");
 mongoose.connect('mongodb://arie:arie@ds040489.mlab.com:40489/mshealthbot');
 var Schema = mongoose.Schema;
 var db = mongoose.connection;
 var Tokens;
 var Scenarios;
+var loadError;
 
 db.on('error', function(err){
     log.error(err);
@@ -56,6 +58,7 @@ db.once('open', function() {
         loadScenariosFolder();
     }
     catch(e) {
+        loadError = e.message;
         log.error("Failed to load scenarios %s", e);
     }
 });
@@ -239,6 +242,7 @@ function loadScenarioFile(bot, commandDialog, scenarios) {
 
 
 function loadScenariosFolder() {   
+    loadError = undefined;
     var query = Scenarios.find({});
     query.then(function(scenarios) {
         var scenariosArray = [];
@@ -267,6 +271,7 @@ function loadScenariosFolder() {
             }
             catch (e) {
                 log.error("Failed to load scenarion %s", e.message);
+                loadError = e.message;
             }                        
             app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
         }
@@ -285,7 +290,11 @@ function sendEmail(session) {
 
 app.get('/', function(req, res) {
 	Scenarios.find({}, function(err, scenarios) {
-		res.render('pages/index', {scenarios:scenarios});
+        var data = {
+            error:loadError,
+            scenarios:scenarios
+        }        
+		res.render('pages/index', data);
 	});
 });
 

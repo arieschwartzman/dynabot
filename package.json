@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "base-64": "^0.1.0",
+    "bluebird": "^3.4.1",
     "body-parser": "^1.15.2",
     "botbuilder": "^1.0.1",
     "bunyan": "^1.8.1",
