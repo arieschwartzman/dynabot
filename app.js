@@ -112,7 +112,7 @@ function buildDialog(dialog) {
                         }
                         var text = evaluateExpression(session, step.text);
                         var message = new builder.Message();
-                        message.setText(session, text);
+                        message.text(text);
                         // If there is an image, attach it
                         if (step.hasOwnProperty('image')) {
                             message.addAttachment({
@@ -159,7 +159,8 @@ function buildDialog(dialog) {
 function clearDialogData(session, dialog) {
     log.debug("clear all variables from dialog " + dialog.name);
     for (var s = 0; s < dialog.steps.length; s++) {
-        delete session.message.botConversationData[dialog.steps[s].variable];
+        //delete session.message.botConversationData[dialog.steps[s].variable];
+        session.userData[dialog.steps[s].variable] = undefined;
         if (dialog.steps[s].group) {
             clearDialogData(session, dialog.steps[s].group);
         }
@@ -172,7 +173,8 @@ function clearDialogData(session, dialog) {
 function updatePreviousStepData(session, prevStep, results) {
     if (prevStep && prevStep.variable && results) {
         log.debug("udating step % with data=%", prevStep, results.response);
-        session.message.botConversationData[prevStep.variable] = results.response;
+        session.userData[prevStep.variable] = results.response; 
+        //session.message.botConversationData[prevStep.variable] = results.response;
     }
 }
 
@@ -184,7 +186,7 @@ function evaluateExpression(session, value, toEval) {
     if (typeof (value) == 'string') {
         var re = /\$\{(\S+)\}/g;
         if (value.match(re) || toEval) {
-            var replacedExpr = value.replace(re, "session.message.botConversationData['$1']");
+            var replacedExpr = value.replace(re, "session.userData['$1']");
             log.debug(replacedExpr);
             result = eval(replacedExpr);
         }
@@ -217,7 +219,7 @@ function fixupDailogRecursive(dialogNode, isRoot) {
  */
 function buildDialogRecursive(bot, dialogNode) {
     var waterfallFuncs =  buildDialog(dialogNode);
-    bot.add(dialogNode.name, waterfallFuncs);
+    bot.dialog(dialogNode.name, waterfallFuncs);
     for (var s = 0; s < dialogNode.steps.length; s++) {
         if (dialogNode.steps[s].group) {
             buildDialogRecursive(bot, dialogNode.steps[s].group);
@@ -230,7 +232,7 @@ function buildDialogRecursive(bot, dialogNode) {
 /**
  * Load all scenarios and attach them to the command dialog
  */
-function loadScenarioFile(bot, commandDialog, scenarios) {
+function loadScenarioFile(bot, intents, scenarios) {
     for (var s = 0; s < scenarios.length; s++) {
         var dialog = scenarios[s];
         // Fix dialogs relationship 
@@ -239,7 +241,11 @@ function loadScenarioFile(bot, commandDialog, scenarios) {
         buildDialogRecursive(bot, dialog);
         // Attach them to commands
         log.debug('loading ' + dialog.intent);
-        commandDialog.matches(dialog.intent, builder.DialogAction.beginDialog(dialog.name));
+        intents.matches(new RegExp(dialog.intent), [
+            function(session) {
+                session.beginDialog(dialog.name)
+            }
+        ]);
     }    
 }
 
@@ -265,20 +271,28 @@ function loadScenariosFolder(callback) {
             }
         }
         if (scenariosArray.length > 0) {
-            var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
-            var commandDialog = new builder.CommandDialog();
-            commandDialog.onDefault(function (session) {
-                session.send('I can only answer questions about health and triage');
+            var connector = new builder.ChatConnector({
+                appId: undefined,
+                appPassword: undefined
             });
-            bot.add('/', commandDialog);            
+            //var connector = new builder.ConsoleConnector().listen();
+            var bot = new builder.UniversalBot(connector);
+            var intents = new builder.IntentDialog();
+            intents.onDefault([
+                function (session, results) {
+                    session.send('I can only answer health questions');
+                }
+            ]);
+
+            bot.dialog('/', intents);
             try {
-                loadScenarioFile(bot, commandDialog, scenariosArray);
+                loadScenarioFile(bot, intents, scenariosArray);
             }
             catch (e) {
                 log.error("Failed to load scenarion %s", e.message);
                 loadError = e.message;
             }                        
-            app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
+            app.post('/dynabot', connector.listen());
             callback();
         }
     });
@@ -286,7 +300,7 @@ function loadScenariosFolder(callback) {
 
 
 function sendEmail(session) {
-    var data = {data:session.message.botConversationData};
+    var data = {data:session.message.userData};
     doctorEmail.render(data, function (err, result) {
         log.debug('===>Email is sent with ',result, err);
     })
