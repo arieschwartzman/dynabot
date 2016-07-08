@@ -56,7 +56,9 @@ db.once('open', function() {
     Scenarios = mongoose.model('Scenarios', scenariosSchema);
 
     try {
-        loadScenariosFolder();
+        loadScenariosFolder(function(){
+            
+        });
     }
     catch(e) {
         loadError = e.message;
