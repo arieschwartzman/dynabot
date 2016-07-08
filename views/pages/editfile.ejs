@@ -30,13 +30,12 @@
     </style>
     <script>
         $(function(){
-            var editor = $('#editor');
-            var editor = CodeMirror.fromTextArea(editor[0], {
-            lineNumbers: true,
-            mode: "application/json",
-            gutters: ["CodeMirror-lint-markers"],
-            lint: true,
-            extraKeys: {"Alt-F": "findPersistent"}
+            var editor = CodeMirror.fromTextArea($('#editor')[0], {
+                lineNumbers: true,
+                mode: "application/json",
+                gutters: ["CodeMirror-lint-markers"],
+                lint: true,
+                extraKeys: {"Alt-F": "findPersistent"}
             });
             editor.setSize('100%','65%');
         })
@@ -56,7 +55,6 @@
             <div class="form-group">             
                 <label class="sr-only" for="name readonly">Name</label>
                 <% if (scenario.mode=='edit') { %>                       
-                    <input type="text" required class="form-control" id="name" name="name" placeholder="Name" readonly="readonly" value="<%=scenario.name%>">
                 <% } else { %>
                     <input type="text" required class="form-control" id="name" name="name" placeholder="Name" value="<%=scenario.name%>">
                 <% } %>                
