@@ -48,6 +48,7 @@ db.once('open', function() {
 	Tokens = mongoose.model('Tokens', tokenSchema);
 
     var scenariosSchema = new Schema({
+        active      :Boolean,
         name        :String,
         description :String,
         code        :String
@@ -248,14 +249,16 @@ function loadScenariosFolder() {
         var scenariosArray = [];
         for (s=0; s < scenarios.length; s++) {
             var scenario = scenarios[s];
-            var jsonCode = base64.decode(scenario.code);
-            if (jsonCode.length > 0) {
-                try {
-                    var code = JSON.parse(jsonCode);
-                    scenariosArray.push(code);
-                }
-                catch(e) {
-                    log.error("Failed to parse %s", e.message);
+            if (scenario.active) {
+                var jsonCode = base64.decode(scenario.code);
+                if (jsonCode.length > 0) {
+                    try {
+                        var code = JSON.parse(jsonCode);
+                        scenariosArray.push(code);
+                    }
+                    catch(e) {
+                        log.error("Failed to parse %s", e.message);
+                    }
                 }
             }
         }
@@ -287,6 +290,12 @@ function sendEmail(session) {
 }
 
 
+function reloadApp() {
+    removeRoute(app, '/dynabot');
+    loadScenariosFolder();
+}
+
+
 
 app.get('/', function(req, res) {
 	Scenarios.find({}, function(err, scenarios) {
@@ -309,18 +318,32 @@ app.get('/editfile', function(req, res) {
     })
 });
 
+app.get('/activate', function(req, res) {
+    var id = req.query.name;
+    var active = req.query.value;
+
+    Scenarios.findOne({_id:id}, function(err, scenario) {
+        scenario.active = (active == 'true') ? true : false;
+        scenario.save(function(err1, documentFoo, isOK){
+            if (isOK) {
+                reloadApp();
+                res.redirect('/');
+            }            
+        });
+
+    });
+});
+
 app.get('/delete', function(req, res, next){
     var name = req.query.file;
     Scenarios.remove({name:name}, function(err, scenario){
-        removeRoute(app, '/dynabot');
-        loadScenariosFolder();
+        reloadApp();
         res.redirect('/');        
     });
 });
 
 app.get('/addfile', function(req, res) {
     var scenario = {name:'', code:'{\n\t"name":"",\n\t"intent":"",\n\t"steps":[\n\t\t{\n\t\t}\n\t]\n}', newDoc : true};
-
     res.render('pages/editfile', {scenario:scenario});    
 })
 
@@ -346,8 +369,7 @@ app.post('/savefile', function(req, res, next) {
         scenario.code = encoded;
         scenario.save(function(err, documentFoo, isOK) {
             // Remove previous bot
-            removeRoute(app, '/dynabot');
-            loadScenariosFolder();
+            reloadApp();
             res.redirect('/');
         });
         // Reload the scenarios file
