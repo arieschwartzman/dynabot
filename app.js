@@ -242,7 +242,7 @@ function loadScenarioFile(bot, commandDialog, scenarios) {
 }
 
 
-function loadScenariosFolder() {   
+function loadScenariosFolder(callback) {   
     loadError = undefined;
     var query = Scenarios.find({});
     query.then(function(scenarios) {
@@ -277,6 +277,7 @@ function loadScenariosFolder() {
                 loadError = e.message;
             }                        
             app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
+            callback();
         }
     });
 }
@@ -290,9 +291,9 @@ function sendEmail(session) {
 }
 
 
-function reloadApp() {
+function reloadApp(callback) {
     removeRoute(app, '/dynabot');
-    loadScenariosFolder();
+    loadScenariosFolder(callback);
 }
 
 
@@ -326,8 +327,9 @@ app.get('/activate', function(req, res) {
         scenario.active = (active == 'true') ? true : false;
         scenario.save(function(err1, documentFoo, isOK){
             if (isOK) {
-                reloadApp();
-                res.redirect('/');
+                reloadApp(function(){
+                    res.redirect(active=='true' ? '/?message=Scenario Enabled':'/?message=Scenario Disabled');
+                });
             }            
         });
 
@@ -337,8 +339,9 @@ app.get('/activate', function(req, res) {
 app.get('/delete', function(req, res, next){
     var name = req.query.file;
     Scenarios.remove({name:name}, function(err, scenario){
-        reloadApp();
-        res.redirect('/');        
+        reloadApp(function(){
+            res.redirect('/');        
+        });
     });
 });
 
@@ -369,8 +372,10 @@ app.post('/savefile', function(req, res, next) {
         scenario.code = encoded;
         scenario.save(function(err, documentFoo, isOK) {
             // Remove previous bot
-            reloadApp();
-            res.redirect('/');
+            reloadApp(function(){
+                res.redirect('/?message=' + scenario.name + ' Saved');
+
+            });
         });
         // Reload the scenarios file
     });

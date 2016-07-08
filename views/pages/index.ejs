@@ -41,7 +41,7 @@
                         <%=scenarios[i].description%>
                     </td>
                     <td>
-                        <a class="btn btn-warning btn-sm deleteButton" href="/delete?file=<%=scenarios[i].name%>">Delete</a>
+                        <a class="btn btn-danger btn-sm deleteButton" href="/delete?file=<%=scenarios[i].name%>">Delete</a>
                     </td>
                 </tr>
                 <% } %>
@@ -53,21 +53,26 @@
         </div>
 
         <script>
-        $('.deleteButton').confirmation({
-	            onConfirm: function(e, element) {
-                    location = element.attr('href');
-	            },
-	            placement:'left',
-	            title:'Are you sure you want to delete this scenario?'
-	        });
 
-        $('.checkbox').on('change', function(e){
-            var val = $(this).attr('checked')
-            location = "/activate?name=" + e.originalEvent.target.id + "&value=" + $(this).is(':checked');
-            console.log();
-        });
+        $(function(){
+            if ($.url().param('message')) {
+                toastr.info($.url().param('message'));
+            }
+            $('.deleteButton').confirmation({
+                    onConfirm: function(e, element) {
+                        location = element.attr('href');
+                    },
+                    placement:'left',
+                    title:'Are you sure you want to delete this scenario?'
+                });
 
-        
+            $('.checkbox').on('change', function(e){
+                var val = $(this).attr('checked')
+                location = "/activate?name=" + e.originalEvent.target.id + "&value=" + $(this).is(':checked');
+                console.log();
+            });        
+
+        })
         </script>
     </div>
     <nav class="navbar navbar-default navbar-fixed-bottom">
