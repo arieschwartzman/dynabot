@@ -90,7 +90,7 @@ function buildDialog(dialog) {
             if (currentStep.type == "endDialog") {
                 waterfallfunction = function (session, results, next) {
                     updatePreviousStepData(session, step.prev, results);
-                    session.endDialog({ response: results.response });
+                    session.endDialogWithResult({ response: results.response });
                 }
             }
             if (currentStep.type == "prompt") {
@@ -110,16 +110,8 @@ function buildDialog(dialog) {
                             eval(step.onInit)
                             evaluateExpression(session, step.init, true);
                         }
-                        var text = evaluateExpression(session, step.text);
-                        var message = new builder.Message();
-                        message.setText(session, text);
-                        // If there is an image, attach it
-                        if (step.hasOwnProperty('image')) {
-                            message.addAttachment({
-                                contentType: 'image/png',
-                                contentUrl: evaluateExpression(session, step.image)
-                            });
-                        }
+                        var message = createMessage(session, step);
+                        
                         if (Array.isArray(step.dataType)) {
                             builder.Prompts.choice(session, message, step.dataType);
                         } else if (step.dataType == 'boolean') {
@@ -128,8 +120,7 @@ function buildDialog(dialog) {
                             builder.Prompts.number(session, message);
                         } else if (step.dataType == 'time') {
                             builder.Prompts.time(session, message)
-                        }
-                        else {
+                        } else  {
                             builder.Prompts.text(session, message);
                         }
                     }
@@ -138,12 +129,13 @@ function buildDialog(dialog) {
             if (currentStep.type == "statement") {
                 waterfallfunction = function (session, results) {
                     updatePreviousStepData(session, step.prev, results);
-                    var text = evaluateExpression(session, step.text);
-                    session.send(text);
+                    var message = createMessage(session, step);
+                    session.send(message);
+
                     if (step.hasOwnProperty('onInit')) {
                         evaluateExpression(session, step.onInit, true);
                     }
-                    session.endDialog();
+                    session.endDialogWithResult();
                 }
             }
         })(currentStep);
@@ -153,13 +145,35 @@ function buildDialog(dialog) {
     return waterfallFunctions;
 }
 
+
+function createMessage(session, step) {
+    var msg = new builder.Message(session);
+    if (step.hasOwnProperty('attachment')) {
+        if (typeof(step.attachment) == "string") {
+            msg.attachments([{
+                contentType: 'image/png',
+                contentUrl: evaluateExpression(session, step.attachment)
+            }]);        
+        }
+        else {
+            var card = step.attachment;
+            msg.attachments([new builder.SigninCard(session) 
+                    .text(card.title) 
+                    .button(card.button, "http://example.com/")]);         
+        }
+    }
+    var text = evaluateExpression(session, step.text);
+    return msg.text(text);
+}
+
 /**
  * When top level starts, clear all step variables
  */
 function clearDialogData(session, dialog) {
     log.debug("clear all variables from dialog " + dialog.name);
     for (var s = 0; s < dialog.steps.length; s++) {
-        delete session.message.botConversationData[dialog.steps[s].variable];
+        //delete session.message.botConversationData[dialog.steps[s].variable];
+        session.userData[dialog.steps[s].variable] = undefined;
         if (dialog.steps[s].group) {
             clearDialogData(session, dialog.steps[s].group);
         }
@@ -172,7 +186,8 @@ function clearDialogData(session, dialog) {
 function updatePreviousStepData(session, prevStep, results) {
     if (prevStep && prevStep.variable && results) {
         log.debug("udating step % with data=%", prevStep, results.response);
-        session.message.botConversationData[prevStep.variable] = results.response;
+        session.userData[prevStep.variable] = results.response; 
+        //session.message.botConversationData[prevStep.variable] = results.response;
     }
 }
 
@@ -184,7 +199,7 @@ function evaluateExpression(session, value, toEval) {
     if (typeof (value) == 'string') {
         var re = /\$\{(\S+)\}/g;
         if (value.match(re) || toEval) {
-            var replacedExpr = value.replace(re, "session.message.botConversationData['$1']");
+            var replacedExpr = value.replace(re, "session.userData['$1']");
             log.debug(replacedExpr);
             result = eval(replacedExpr);
         }
@@ -217,7 +232,7 @@ function fixupDailogRecursive(dialogNode, isRoot) {
  */
 function buildDialogRecursive(bot, dialogNode) {
     var waterfallFuncs =  buildDialog(dialogNode);
-    bot.add(dialogNode.name, waterfallFuncs);
+    bot.dialog(dialogNode.name, waterfallFuncs);
     for (var s = 0; s < dialogNode.steps.length; s++) {
         if (dialogNode.steps[s].group) {
             buildDialogRecursive(bot, dialogNode.steps[s].group);
@@ -230,7 +245,7 @@ function buildDialogRecursive(bot, dialogNode) {
 /**
  * Load all scenarios and attach them to the command dialog
  */
-function loadScenarioFile(bot, commandDialog, scenarios) {
+function loadScenarioFile(bot, intents, scenarios) {
     for (var s = 0; s < scenarios.length; s++) {
         var dialog = scenarios[s];
         // Fix dialogs relationship 
@@ -239,7 +254,7 @@ function loadScenarioFile(bot, commandDialog, scenarios) {
         buildDialogRecursive(bot, dialog);
         // Attach them to commands
         log.debug('loading ' + dialog.intent);
-        commandDialog.matches(dialog.intent, builder.DialogAction.beginDialog(dialog.name));
+        intents.matches(new RegExp(dialog.intent), builder.DialogAction.beginDialog(dialog.name));
     }    
 }
 
@@ -265,28 +280,37 @@ function loadScenariosFolder(callback) {
             }
         }
         if (scenariosArray.length > 0) {
-            var bot = new builder.BotConnectorBot({ appId: 'MS Health', appSecret: '70297ee3cea84f46b27ae939551049bd' });
-            var commandDialog = new builder.CommandDialog();
-            commandDialog.onDefault(function (session) {
-                session.send('I can only answer questions about health and triage');
+            var connector = new builder.ChatConnector({
+                appId: process.env.MICROSOFT_APP_ID,
+                appPassword: process.env.MICROSOFT_APP_PASSWORD
             });
-            bot.add('/', commandDialog);            
+            log.info("appId=%s appPassword=%s", process.env.MICROSOFT_APP_ID, process.env.MICROSOFT_APP_PASSWORD);
+
+            var bot = new builder.UniversalBot(connector);
+            var intents = new builder.IntentDialog();
+            intents.onDefault([
+                function (session, results) {
+                    session.send('I can only answer health questions');
+                }
+            ]);
+
+            bot.dialog('/', intents);
             try {
-                loadScenarioFile(bot, commandDialog, scenariosArray);
+                loadScenarioFile(bot, intents, scenariosArray);
             }
             catch (e) {
                 log.error("Failed to load scenarion %s", e.message);
                 loadError = e.message;
             }                        
-            app.post('/dynabot', bot.verifyBotFramework(), bot.listen());
-            callback();
+            app.post('/dynabot', connector.listen());
         }
+        callback();
     });
 }
 
 
 function sendEmail(session) {
-    var data = {data:session.message.botConversationData};
+    var data = {data:session.message.userData};
     doctorEmail.render(data, function (err, result) {
         log.debug('===>Email is sent with ',result, err);
     })
