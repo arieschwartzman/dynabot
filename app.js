@@ -110,16 +110,8 @@ function buildDialog(dialog) {
                             eval(step.onInit)
                             evaluateExpression(session, step.init, true);
                         }
-                        var text = evaluateExpression(session, step.text);
-                        var message = new builder.Message();
-                        message.text(text);
-                        // If there is an image, attach it
-                        if (step.hasOwnProperty('image')) {
-                            message.addAttachment({
-                                contentType: 'image/png',
-                                contentUrl: evaluateExpression(session, step.image)
-                            });
-                        }
+                        var message = createMessage(session, step);
+                        
                         if (Array.isArray(step.dataType)) {
                             builder.Prompts.choice(session, message, step.dataType);
                         } else if (step.dataType == 'boolean') {
@@ -128,8 +120,7 @@ function buildDialog(dialog) {
                             builder.Prompts.number(session, message);
                         } else if (step.dataType == 'time') {
                             builder.Prompts.time(session, message)
-                        }
-                        else {
+                        } else  {
                             builder.Prompts.text(session, message);
                         }
                     }
@@ -138,8 +129,9 @@ function buildDialog(dialog) {
             if (currentStep.type == "statement") {
                 waterfallfunction = function (session, results) {
                     updatePreviousStepData(session, step.prev, results);
-                    var text = evaluateExpression(session, step.text);
-                    session.send(text);
+                    var message = createMessage(session, step);
+                    session.send(message);
+
                     if (step.hasOwnProperty('onInit')) {
                         evaluateExpression(session, step.onInit, true);
                     }
@@ -151,6 +143,27 @@ function buildDialog(dialog) {
         waterfallFunctions.push(waterfallfunction);
     }
     return waterfallFunctions;
+}
+
+
+function createMessage(session, step) {
+    var msg = new builder.Message(session);
+    if (step.hasOwnProperty('attachment')) {
+        if (typeof(step.attachment) == "string") {
+            msg.attachments([{
+                contentType: 'image/png',
+                contentUrl: evaluateExpression(session, step.attachment)
+            }]);        
+        }
+        else {
+            var card = step.attachment;
+            msg.attachments([new builder.SigninCard(session) 
+                    .text(card.title) 
+                    .button(card.button, "http://example.com/")]);         
+        }
+    }
+    var text = evaluateExpression(session, step.text);
+    return msg.text(text);
 }
 
 /**
@@ -241,11 +254,7 @@ function loadScenarioFile(bot, intents, scenarios) {
         buildDialogRecursive(bot, dialog);
         // Attach them to commands
         log.debug('loading ' + dialog.intent);
-        intents.matches(new RegExp(dialog.intent), [
-            function(session) {
-                session.beginDialog(dialog.name)
-            }
-        ]);
+        intents.matches(new RegExp(dialog.intent), builder.DialogAction.beginDialog(dialog.name));
     }    
 }
 
