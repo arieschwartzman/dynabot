@@ -90,7 +90,7 @@ function buildDialog(dialog) {
             if (currentStep.type == "endDialog") {
                 waterfallfunction = function (session, results, next) {
                     updatePreviousStepData(session, step.prev, results);
-                    session.endDialog({ response: results.response });
+                    session.endDialogWithResult({ response: results.response });
                 }
             }
             if (currentStep.type == "prompt") {
@@ -135,7 +135,7 @@ function buildDialog(dialog) {
                     if (step.hasOwnProperty('onInit')) {
                         evaluateExpression(session, step.onInit, true);
                     }
-                    session.endDialog();
+                    session.endDialogWithResult();
                 }
             }
         })(currentStep);
@@ -281,10 +281,11 @@ function loadScenariosFolder(callback) {
         }
         if (scenariosArray.length > 0) {
             var connector = new builder.ChatConnector({
-                appId: undefined,
-                appPassword: undefined
+                appId: process.env.MICROSOFT_APP_ID,
+                appPassword: process.env.MICROSOFT_APP_PASSWORD
             });
-            //var connector = new builder.ConsoleConnector().listen();
+            log.info("appId=%s appPassword=%s", process.env.MICROSOFT_APP_ID, process.env.MICROSOFT_APP_PASSWORD);
+
             var bot = new builder.UniversalBot(connector);
             var intents = new builder.IntentDialog();
             intents.onDefault([
@@ -302,8 +303,8 @@ function loadScenariosFolder(callback) {
                 loadError = e.message;
             }                        
             app.post('/dynabot', connector.listen());
-            callback();
         }
+        callback();
     });
 }
 
