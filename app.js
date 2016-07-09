@@ -145,7 +145,10 @@ function buildDialog(dialog) {
     return waterfallFunctions;
 }
 
-
+/**
+ * Create a message with possible attachment if there is 'attachment' property. It can also be object
+ * in this case we add a card as an attachment
+ */
 function createMessage(session, step) {
     var msg = new builder.Message(session);
     if (step.hasOwnProperty('attachment')) {
@@ -181,18 +184,18 @@ function clearDialogData(session, dialog) {
 }
 
 /**
- * Set step variable with a new value 
+ * Set step variable with a new value stored in userData 
  */
 function updatePreviousStepData(session, prevStep, results) {
     if (prevStep && prevStep.variable && results) {
         log.debug("udating step % with data=%", prevStep, results.response);
         session.userData[prevStep.variable] = results.response; 
-        //session.message.botConversationData[prevStep.variable] = results.response;
     }
 }
 
 /**
- * Replace all variable references and evaluate the resolved expression  
+ * Replace all variable references and evaluate the resolved expression
+ * and run eval on the expression to get result and return it.   
  */
 function evaluateExpression(session, value, toEval) {
     var result = value;
@@ -207,6 +210,11 @@ function evaluateExpression(session, value, toEval) {
     return result;
 } 
 
+/**
+ * Add data to the JSON structure by iterating on the tree. We link the steps so that step will point to the previous
+ * step so we can set variable of the previous step when we enter next step. We also mark the first step in root dialog so we can 
+ * clean all variables belonging to this root dialog 
+ */
 function fixupDailogRecursive(dialogNode, isRoot) {
     if (!isRoot){
         dialogNode.name = uuid.v4(); 
@@ -228,7 +236,8 @@ function fixupDailogRecursive(dialogNode, isRoot) {
 }
 
 /**
- * Build a dialog with all the sub dialogs
+ * Build a dialog with all the sub dialogs by recusing on the dialog and all the groups
+ * adding waterfall functions to the dialogs and groups
  */
 function buildDialogRecursive(bot, dialogNode) {
     var waterfallFuncs =  buildDialog(dialogNode);
@@ -243,7 +252,7 @@ function buildDialogRecursive(bot, dialogNode) {
 
 
 /**
- * Load all scenarios and attach them to the command dialog
+ * Load all scenarios and attach them to the intent dialog. The scenarios are inside a n array. We first fixup the tree.
  */
 function loadScenarioFile(bot, intents, scenarios) {
     for (var s = 0; s < scenarios.length; s++) {
@@ -259,6 +268,11 @@ function loadScenarioFile(bot, intents, scenarios) {
 }
 
 
+/**
+ * Main entry point of the builder. We create new instance of bot and the connector objects. 
+ * Attach the connector to express middleware
+ * Load all the scenarios from DB. Concatinate them into one array of scenarios, call callback function when done
+ */
 function loadScenariosFolder(callback) {   
     loadError = undefined;
     var query = Scenarios.find({});
@@ -309,6 +323,9 @@ function loadScenariosFolder(callback) {
 }
 
 
+/**
+ * Utility function for formating email using templates. More to come...
+ */
 function sendEmail(session) {
     var data = {data:session.message.userData};
     doctorEmail.render(data, function (err, result) {
@@ -316,14 +333,19 @@ function sendEmail(session) {
     })
 }
 
-
+/**
+ * When reloading the scenarios, remove the old connector so GC can work
+ */
 function reloadApp(callback) {
     removeRoute(app, '/dynabot');
     loadScenariosFolder(callback);
 }
 
-
-
+/******************************************************************************************************************************* */
+//
+//                  Website supporting routing
+// 
+/******************************************************************************************************************************* */
 app.get('/', function(req, res) {
 	Scenarios.find({}, function(err, scenarios) {
         var data = {
